@@ -147,9 +147,9 @@
         
         // Ambil nilai NDVI jika tersedia di layer terkait
         const ndvi = feature.get('NDVI');  // Sesuaikan nama atribut NDVI
-        const ndviMean = feature.get('mean_NDVI');  // Sesuaikan dengan atribut mean NDVI
-        const ndviMin = feature.get('min_NDVI');  // Sesuaikan dengan atribut min NDVI
-        const ndviMax = feature.get('max_NDVI');  // Sesuaikan dengan atribut max NDVI
+        const ndviMean = feature.get('_mean');  // Atribut _mean
+        const ndviMin = feature.get('_min');  // Atribut _min
+        const ndviMax = feature.get('_max');  // Atribut _max
 
         // Menampilkan informasi pada popup
         const content = `
