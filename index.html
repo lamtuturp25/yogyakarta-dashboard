@@ -1,216 +1,411 @@
-<!DOCTYPE html>
-<html lang="id">
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="initial-scale=1, user-scalable=no, maximum-scale=1, width=device-width" />
-  <title>Peta NDVI 2024</title>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="Interactive NDVI Map for Agricultural Monitoring">
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./resources/ol.css" />
-  <link rel="stylesheet" href="./resources/ol-layerswitcher.css" />
+  <!-- CSS Resources -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.3.0/ol.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol-layerswitcher@4.1.1/dist/ol-layerswitcher.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="./resources/qgis2web.css">
 
   <style>
-    html, body {
+    :root {
+      --primary-color: #4a6fa5;
+      --secondary-color: #166d67;
+      --danger-color: #d9534f;
+    }
+    
+    body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      overflow: hidden;
+    }
+
+    #map-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 10px 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      z-index: 1000;
     }
 
     #map {
       width: 100%;
-      height: 100%;
+      flex-grow: 1;
+      background-color: #e9ecef;
     }
 
-    #bulanNDVI {
+    #controls {
       position: absolute;
-      top: 10px;
+      top: 70px;
       left: 10px;
       z-index: 1000;
-      background: white;
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      width: 250px;
+    }
+
+    #legend {
+      position: absolute;
+      bottom: 30px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      max-width: 200px;
+    }
+
+    .legend-color {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-right: 5px;
+      vertical-align: middle;
       border: 1px solid #ccc;
     }
 
     .ol-popup {
       position: absolute;
       background-color: white;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      padding: 15px;
+      border-radius: 5px;
+      border: 1px solid #cccccc;
+      bottom: 12px;
+      left: -50px;
       min-width: 200px;
+    }
+
+    .ol-popup:after, .ol-popup:before {
+      top: 100%;
+      border: solid transparent;
+      content: " ";
+      height: 0;
+      width: 0;
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .ol-popup:after {
+      border-top-color: white;
+      border-width: 10px;
+      left: 48px;
+      margin-left: -10px;
+    }
+
+    .ol-popup:before {
+      border-top-color: #cccccc;
+      border-width: 11px;
+      left: 48px;
+      margin-left: -11px;
     }
 
     .ol-popup-closer {
       text-decoration: none;
       position: absolute;
-      top: 2px;
+      top: 5px;
       right: 8px;
-      color: #888;
+      color: #666;
     }
 
-    .ndvi-legend {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: white;
+    .ol-popup-closer:after {
+      content: "✖";
+    }
+
+    .info-panel {
+      background: rgba(255, 255, 255, 0.9);
       padding: 10px;
       border-radius: 5px;
-      font-size: 12px;
-      border: 1px solid #ccc;
-      z-index: 1000;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
-    .ndvi-legend div {
-      display: flex;
-      align-items: center;
+    .custom-control {
+      margin-bottom: 10px;
+    }
+
+    .custom-control label {
+      font-weight: 500;
       margin-bottom: 5px;
+      display: block;
     }
 
-    .ndvi-legend span {
-      width: 20px;
-      height: 12px;
-      margin-right: 6px;
-      display: inline-block;
+    .custom-control select, .custom-control input {
+      width: 100%;
+      padding: 5px;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+    }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1001;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid var(--primary-color);
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
+
+  <title>Agricultural NDVI Monitoring Dashboard</title>
 </head>
-
 <body>
-  <!-- Dropdown Bulan -->
-  <select id="bulanNDVI">
-    <option value="NDVI_01_2024_2">Januari 2024</option>
-    <option value="NDVI_02_2024_3">Februari 2024</option>
-    <option value="NDVI_03_2024_4">Maret 2024</option>
-  </select>
+  <div id="map-container">
+    <header id="header">
+      <div class="d-flex justify-content-between align-items-center">
+        <h1 class="fs-5 mb-0">Agricultural NDVI Monitoring</h1>
+        <div id="current-date" class="text-end">Januari 2024</div>
+      </div>
+    </header>
 
-  <!-- Map -->
-  <div id="map">
-    <div id="popup" class="ol-popup">
-      <a href="#" id="popup-closer" class="ol-popup-closer">✖</a>
-      <div id="popup-content"></div>
+    <div id="map">
+      <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+      </div>
+      
+      <div id="popup" class="ol-popup">
+        <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+        <div id="popup-content"></div>
+      </div>
+    </div>
+
+    <div id="controls" class="info-panel">
+      <div class="custom-control">
+        <label for="month-select"><i class="fas fa-calendar-alt me-2"></i>Select Month:</label>
+        <select id="month-select" class="form-select form-select-sm">
+          <option value="NDVI_01_2024_2">Januari 2024</option>
+          <option value="NDVI_02_2024_3">Februari 2024</option>
+          <option value="NDVI_03_2024_4">Maret 2024</option>
+        </select>
+      </div>
+      
+      <div class="custom-control">
+        <label for="opacity-slider"><i class="fas fa-sliders-h me-2"></i>Layer Opacity:</label>
+        <input type="range" id="opacity-slider" min="0" max="1" step="0.1" value="0.8" class="form-range">
+      </div>
+      
+      <button id="download-btn" class="btn btn-sm btn-primary w-100 mt-2">
+        <i class="fas fa-download me-2"></i>Export Map
+      </button>
+    </div>
+
+    <div id="legend" class="info-panel">
+      <h6 class="mb-2"><i class="fas fa-map me-2"></i>NDVI Legend</h6>
+      <div id="legend-content">
+        <div><span class="legend-color" style="background-color: #d73027;"></span> Low (0-0.2)</div>
+        <div><span class="legend-color" style="background-color: #fee08b;"></span> Medium (0.2-0.4)</div>
+        <div><span class="legend-color" style="background-color: #31a354;"></span> High (0.4-0.6)</div>
+        <div><span class="legend-color" style="background-color: #006837;"></span> Very High (>0.6)</div>
+      </div>
     </div>
   </div>
 
-  <!-- Legend -->
-  <div class="ndvi-legend">
-    <strong>NDVI</strong>
-    <div><span style="background:#d7191c;"></span> 0.0–0.2</div>
-    <div><span style="background:#fdae61;"></span> 0.2–0.3</div>
-    <div><span style="background:#ffffbf;"></span> 0.3–0.4</div>
-    <div><span style="background:#a6d96a;"></span> 0.4–0.6</div>
-    <div><span style="background:#1a9641;"></span> >0.6</div>
-  </div>
-
-  <!-- JS -->
-  <script src="./resources/ol.js"></script>
+  <!-- JavaScript Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/ol@v7.3.0/dist/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ol-layerswitcher@4.1.1/dist/ol-layerswitcher.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+  
+  <!-- Local Resources -->
   <script src="./resources/qgis2web_expressions.js"></script>
   <script src="./resources/functions.js"></script>
-  <script src="./resources/ol-layerswitcher.js"></script>
+  <script src="layers/Administrasi_Kecamatan_1.js"></script>
+  <script src="layers/NDVI_01_2024_2.js"></script>
+  <script src="layers/NDVI_02_2024_3.js"></script>
+  <script src="layers/NDVI_03_2024_4.js"></script>
+  <script src="styles/Administrasi_Kecamatan_1_style.js"></script>
+  <script src="styles/NDVI_01_2024_2_style.js"></script>
+  <script src="styles/NDVI_02_2024_3_style.js"></script>
+  <script src="styles/NDVI_03_2024_4_style.js"></script>
+  <script src="./layers/layers.js" type="text/javascript"></script>
   <script src="./resources/Autolinker.min.js"></script>
-
-  <!-- Layer Files -->
-  <script src="./layers/Administrasi_Kecamatan_1.js"></script>
-  <script src="./layers/NDVI_01_2024_2.js"></script>
-  <script src="./layers/NDVI_02_2024_3.js"></script>
-  <script src="./layers/NDVI_03_2024_4.js"></script>
-  <script src="./styles/Administrasi_Kecamatan_1_style.js"></script>
-  <script src="./styles/NDVI_01_2024_2_style.js"></script>
-  <script src="./styles/NDVI_02_2024_3_style.js"></script>
-  <script src="./styles/NDVI_03_2024_4_style.js"></script>
-  <script src="./layers/layers.js"></script>
   <script src="./resources/qgis2web.js"></script>
 
-  <!-- Interaktif NDVI -->
   <script>
-    window.onload = function () {
-      // Google Basemaps
-      const googleMaps = new ol.layer.Tile({
-        title: 'Google Maps',
-        type: 'base',
-        visible: true,
-        source: new ol.source.XYZ({
-          url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}'
-        })
-      });
-
-      const googleSatellite = new ol.layer.Tile({
-        title: 'Google Satellite',
-        type: 'base',
-        visible: false,
-        source: new ol.source.XYZ({
-          url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
-        })
-      });
-
-      map.getLayers().insertAt(0, googleSatellite);
-      map.getLayers().insertAt(0, googleMaps);
-
-      // Layer Switcher
-      const layerSwitcher = new ol.control.LayerSwitcher({
-        tipLabel: 'Pilih Peta Dasar'
-      });
-      map.addControl(layerSwitcher);
-
-      // Popup
-      const overlay = new ol.Overlay({
-        element: document.getElementById('popup'),
-        autoPan: true,
-        autoPanAnimation: { duration: 250 }
-      });
-      map.addOverlay(overlay);
-
-      document.getElementById('popup-closer').onclick = function () {
-        overlay.setPosition(undefined);
-        return false;
-      };
-
-      // NDVI Layers
-      const ndviLayers = {
-        'NDVI_01_2024_2': layersList.find(l => l.get('title') === 'NDVI_01_2024_2'),
-        'NDVI_02_2024_3': layersList.find(l => l.get('title') === 'NDVI_02_2024_3'),
-        'NDVI_03_2024_4': layersList.find(l => l.get('title') === 'NDVI_03_2024_4'),
-      };
-
-      // Tampilkan default Januari
-      for (const key in ndviLayers) {
-        ndviLayers[key].setVisible(key === 'NDVI_01_2024_2');
-      }
-
-      // Dropdown ganti bulan
-      document.getElementById('bulanNDVI').addEventListener('change', function () {
-        const selected = this.value;
+    document.addEventListener('DOMContentLoaded', function() {
+      // Show loading indicator
+      document.getElementById('loading').style.display = 'block';
+      
+      // Initialize map and layers
+      let map;
+      let ndviLayers = {};
+      let currentLayer = null;
+      let popup = null;
+      let popupCloser = null;
+      
+      // Wait for layers to be loaded
+      setTimeout(function() {
+        // Get references to our layers
+        const layerNDVI_Jan = layersList.find(l => l.get('title').includes('NDVI_01_2024'));
+        const layerNDVI_Feb = layersList.find(l => l.get('title').includes('NDVI_02_2024'));
+        const layerNDVI_Mar = layersList.find(l => l.get('title').includes('NDVI_03_2024'));
+        
+        // Store layers in a dictionary for easy access
+        ndviLayers = {
+          'NDVI_01_2024_2': layerNDVI_Jan,
+          'NDVI_02_2024_3': layerNDVI_Feb,
+          'NDVI_03_2024_4': layerNDVI_Mar
+        };
+        
+        // Set default layer (January)
+        currentLayer = ndviLayers['NDVI_01_2024_2'];
+        currentLayer.setVisible(true);
+        currentLayer.setOpacity(0.8);
+        
+        // Hide other layers
         for (const key in ndviLayers) {
-          ndviLayers[key].setVisible(key === selected);
+          if (key !== 'NDVI_01_2024_2') {
+            ndviLayers[key].setVisible(false);
+          }
         }
-      });
-
-      // Klik fitur untuk popup
-      map.on('singleclick', function (evt) {
-        const selected = document.getElementById('bulanNDVI').value;
-        const activeLayer = ndviLayers[selected];
-        let found = false;
-
-        map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
-          if (layer === activeLayer) {
-            const props = feature.getProperties();
-            const html = `
-              <strong>${props.nama_kecamatan || 'Wilayah'}</strong><br>
-              Mean NDVI: ${props._mean?.toFixed(3) || 'n/a'}<br>
-              Min NDVI: ${props._min?.toFixed(3) || 'n/a'}<br>
-              Max NDVI: ${props._max?.toFixed(3) || 'n/a'}
-            `;
-            document.getElementById('popup-content').innerHTML = html;
-            overlay.setPosition(evt.coordinate);
-            found = true;
+        
+        // Initialize popup
+        popup = new ol.Overlay({
+          element: document.getElementById('popup'),
+          autoPan: true,
+          autoPanAnimation: {
+            duration: 250
           }
         });
-
-        if (!found) overlay.setPosition(undefined);
+        
+        map.addOverlay(popup);
+        
+        popupCloser = document.getElementById('popup-closer');
+        popupCloser.onclick = function() {
+          popup.setPosition(undefined);
+          popupCloser.blur();
+          return false;
+        };
+        
+        // Add click event to show popup with NDVI value
+        map.on('singleclick', function(evt) {
+          const viewResolution = map.getView().getResolution();
+          const coordinate = evt.coordinate;
+          
+          // Get NDVI value at clicked location
+          const url = currentLayer.getSource().getFeatureInfoUrl(
+            coordinate,
+            viewResolution,
+            'EPSG:3857',
+            {'INFO_FORMAT': 'application/json'}
+          );
+          
+          if (url) {
+            fetch(url)
+              .then(response => response.json())
+              .then(data => {
+                if (data.features && data.features.length > 0) {
+                  const ndviValue = data.features[0].properties.value;
+                  const content = `
+                    <h6>NDVI Value</h6>
+                    <p><strong>Month:</strong> ${document.getElementById('month-select').selectedOptions[0].text}</p>
+                    <p><strong>Value:</strong> ${ndviValue.toFixed(3)}</p>
+                    <p><small>${getNDVIInterpretation(ndviValue)}</small></p>
+                  `;
+                  document.getElementById('popup-content').innerHTML = content;
+                  popup.setPosition(coordinate);
+                }
+              });
+          }
+        });
+        
+        // Hide loading indicator
+        document.getElementById('loading').style.display = 'none';
+      }, 500);
+      
+      // Handle month selection change
+      document.getElementById('month-select').addEventListener('change', function() {
+        const selected = this.value;
+        document.getElementById('current-date').textContent = this.selectedOptions[0].text;
+        
+        // Show loading indicator during layer switch
+        document.getElementById('loading').style.display = 'block';
+        
+        setTimeout(function() {
+          // Hide current layer
+          if (currentLayer) {
+            currentLayer.setVisible(false);
+          }
+          
+          // Show selected layer
+          currentLayer = ndviLayers[selected];
+          currentLayer.setVisible(true);
+          currentLayer.setOpacity(document.getElementById('opacity-slider').value);
+          
+          // Hide loading indicator
+          document.getElementById('loading').style.display = 'none';
+        }, 300);
       });
-    };
+      
+      // Handle opacity slider
+      document.getElementById('opacity-slider').addEventListener('input', function() {
+        if (currentLayer) {
+          currentLayer.setOpacity(this.value);
+        }
+      });
+      
+      // Handle download button
+      document.getElementById('download-btn').addEventListener('click', function() {
+        const node = document.getElementById('map-container');
+        const fileName = `ndvi_map_${document.getElementById('month-select').value}.png`;
+        
+        htmlToImage.toPng(node, {
+          backgroundColor: '#ffffff',
+          quality: 1,
+          pixelRatio: 2
+        }).then(function(dataUrl) {
+          const link = document.createElement('a');
+          link.download = fileName;
+          link.href = dataUrl;
+          link.click();
+        });
+      });
+      
+      // Helper function to interpret NDVI values
+      function getNDVIInterpretation(value) {
+        if (value < 0.2) return 'Bare soil or no vegetation';
+        if (value < 0.4) return 'Low vegetation or stressed plants';
+        if (value < 0.6) return 'Moderate vegetation';
+        return 'Dense healthy vegetation';
+      }
+    });
   </script>
 </body>
 </html>
