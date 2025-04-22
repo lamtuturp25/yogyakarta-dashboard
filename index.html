@@ -1,14 +1,17 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="id">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+  <meta name="viewport" content="initial-scale=1, user-scalable=no, maximum-scale=1, width=device-width">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
 
+  <title>Peta NDVI</title>
+
+  <!-- Stylesheets -->
   <link rel="stylesheet" href="./resources/ol.css">
-  <link rel="stylesheet" href="resources/fontawesome-all.min.css">
+  <link rel="stylesheet" href="./resources/fontawesome-all.min.css">
   <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
   <link rel="stylesheet" href="./resources/qgis2web.css">
 
@@ -26,158 +29,104 @@
       height: 100vh;
     }
 
-    #bulanNDVI {
+    #bulanNDVI, #checkboxNDVI {
       position: absolute;
-      top: 10px;
       left: 10px;
       z-index: 1000;
       background: white;
-      padding: 5px;
+      padding: 5px 10px;
       font-size: 14px;
       border-radius: 4px;
       border: 1px solid #ccc;
+    }
+
+    #bulanNDVI {
+      top: 10px;
     }
 
     #checkboxNDVI {
-      position: absolute;
-      top: 40px;
-      left: 10px;
-      z-index: 1000;
-      background: white;
-      padding: 5px;
-      font-size: 14px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
+      top: 50px;
     }
 
     .ol-control > * {
-      background-color: #f8f8f8!important;
-      color: #444444!important;
+      background-color: #f8f8f8 !important;
+      color: #444444 !important;
       border-radius: 0px;
     }
 
-    .ol-attribution a, .gcd-gl-input::placeholder, .search-layer-input-search::placeholder {
-      color: #444444!important;
+    .ol-attribution a,
+    .gcd-gl-input::placeholder,
+    .search-layer-input-search::placeholder {
+      color: #444444 !important;
     }
 
     .search-layer-input-search {
-      background-color: #f8f8f8!important;
+      background-color: #f8f8f8 !important;
     }
 
-    .ol-control > *:focus, .ol-control >*:hover {
-      background-color: rgba(248, 248, 248, 0.7)!important;
-    } 
+    .ol-control > *:focus,
+    .ol-control > *:hover {
+      background-color: rgba(248, 248, 248, 0.7) !important;
+    }
 
     .ol-control {
-      background-color: rgba(255,255,255,.4) !important;
+      background-color: rgba(255, 255, 255, .4) !important;
       padding: 2px !important;
-    } 
+    }
   </style>
-
-  <title>Peta NDVI</title>
 </head>
-
- 
-</html>
 <body>
-
-  <!-- Dropdown bulan -->
+  <!-- Dropdown Bulan -->
   <select id="bulanNDVI">
-    <option value="NDVI_01_2024_2">Januari 2024</option>
-    <option value="NDVI_02_2024_3">Februari 2024</option>
-    <option value="NDVI_03_2024_4">Maret 2024</option>
+    <option value="">Pilih Bulan</option>
+    <option value="januari">Januari</option>
+    <option value="februari">Februari</option>
+    <option value="maret">Maret</option>
+    <!-- Tambahkan bulan lainnya sesuai kebutuhan -->
   </select>
 
-  <!-- Map container -->
-  <div id="map">
-    <div id="popup" class="ol-popup">
-      <a href="#" id="popup-closer" class="ol-popup-closer"></a>
-      <div id="popup-content"></div>
-    </div>
+  <!-- Checkbox NDVI -->
+  <div id="checkboxNDVI">
+    <label><input type="checkbox" id="ndviLayerCheckbox"> Tampilkan NDVI</label>
   </div>
 
-  <!-- Script sumber dan layer -->
-  <script src="resources/qgis2web_expressions.js"></script>
-  <script src="./resources/functions.js"></script>
+  <!-- Kontainer Peta -->
+  <div id="map"></div>
+
+  <!-- Scripts -->
   <script src="./resources/ol.js"></script>
   <script src="./resources/ol-layerswitcher.js"></script>
-  <script src="layers/Administrasi_Kecamatan_1.js"></script>
-  <script src="layers/NDVI_01_2024_2.js"></script>
-  <script src="layers/NDVI_02_2024_3.js"></script>
-  <script src="layers/NDVI_03_2024_4.js"></script>
-  <script src="styles/Administrasi_Kecamatan_1_style.js"></script>
-  <script src="styles/NDVI_01_2024_2_style.js"></script>
-  <script src="styles/NDVI_02_2024_3_style.js"></script>
-  <script src="styles/NDVI_03_2024_4_style.js"></script>
-  <script src="./layers/layers.js"></script> 
-  <script src="./resources/Autolinker.min.js"></script>
+  <script src="./layers/layers.js"></script>
+  <script src="./resources/qgis2web_expressions.js"></script>
   <script src="./resources/qgis2web.js"></script>
 
+  <!-- Script interaktif -->
   <script>
-    window.onload = function () {
-      const ndviLayers = {
-        'NDVI_01_2024_2': layersList.find(l => l.get('title').includes('NDVI_01_2024')),
-        'NDVI_02_2024_3': layersList.find(l => l.get('title').includes('NDVI_02_2024')),
-        'NDVI_03_2024_4': layersList.find(l => l.get('title').includes('NDVI_03_2024')),
-      };
+    const ndviLayer = window.ndviLayer; // Asumsikan layer NDVI disiapkan di layers.js
+    const ndviCheckbox = document.getElementById('ndviLayerCheckbox');
+    const bulanSelect = document.getElementById('bulanNDVI');
 
-      const layerKecamatan = layersList.find(l => l.get('title').includes('Administrasi_Kecamatan_1'));
-
-      // Atur hanya layer bulan awal yang terlihat
-      const dropdown = document.getElementById('bulanNDVI');
-      const defaultLayer = dropdown.value;
-
-      for (const key in ndviLayers) {
-        ndviLayers[key].setVisible(key === defaultLayer);
+    ndviCheckbox.addEventListener('change', () => {
+      if (ndviLayer) {
+        ndviLayer.setVisible(ndviCheckbox.checked);
       }
+    });
 
-      // Ganti layer sesuai bulan saat dropdown berubah
-      dropdown.addEventListener('change', function () {
-        const selected = this.value;
-        for (const key in ndviLayers) {
-          ndviLayers[key].setVisible(key === selected);
-        }
-      });
-
-      // Popup interaktif saat klik
-      const overlay = new ol.Overlay({
-        element: document.getElementById('popup'),
-        autoPan: true,
-        autoPanAnimation: { duration: 250 }
-      });
-      map.addOverlay(overlay);
-
-      const closer = document.getElementById('popup-closer');
-      closer.onclick = function () {
-        overlay.setPosition(undefined);
-        closer.blur();
-        return false;
-      };
-
-      map.on('singleclick', function (evt) {
-        let featureFound = false;
-        map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
-          const selectedLayer = ndviLayers[dropdown.value];
-          if (layer === selectedLayer) {
-            const props = feature.getProperties();
-            const content = `
-              <strong>${props.nama_kecamatan || 'Nama tidak tersedia'}</strong><br>
-              Mean NDVI: ${props._mean || 'N/A'}<br>
-              Min NDVI: ${props._min || 'N/A'}<br>
-              Max NDVI: ${props._max || 'N/A'}<br>
-            `;
-            document.getElementById('popup-content').innerHTML = content;
-            overlay.setPosition(evt.coordinate);
-            featureFound = true;
-          }
+    bulanSelect.addEventListener('change', () => {
+      const selectedMonth = bulanSelect.value;
+      // Contoh: ganti URL layer berdasarkan bulan (harus disesuaikan dengan struktur Anda)
+      if (selectedMonth && ndviLayer) {
+        const newSource = new ol.source.TileWMS({
+          url: `https://geoserver.example.com/geoserver/wms`,
+          params: {
+            'LAYERS': `ndvi:${selectedMonth}`,
+            'TILED': true
+          },
+          serverType: 'geoserver',
         });
-
-        if (!featureFound) {
-          overlay.setPosition(undefined);
-        }
-      });
-    };
+        ndviLayer.setSource(newSource);
+      }
+    });
   </script>
 </body>
 </html>
-
