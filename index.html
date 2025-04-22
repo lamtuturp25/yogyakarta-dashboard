@@ -76,20 +76,19 @@
 
   <title>Peta NDVI</title>
 </head>
+
+ 
+</html>
 <body>
 
+  <!-- Dropdown bulan -->
   <select id="bulanNDVI">
     <option value="NDVI_01_2024_2">Januari 2024</option>
     <option value="NDVI_02_2024_3">Februari 2024</option>
     <option value="NDVI_03_2024_4">Maret 2024</option>
   </select>
 
-  <div id="checkboxNDVI">
-    <label><input type="checkbox" id="ndvi1" checked> NDVI 1</label><br>
-    <label><input type="checkbox" id="ndvi2" checked> NDVI 2</label><br>
-    <label><input type="checkbox" id="ndvi3" checked> NDVI 3</label><br>
-  </div>
-
+  <!-- Map container -->
   <div id="map">
     <div id="popup" class="ol-popup">
       <a href="#" id="popup-closer" class="ol-popup-closer"></a>
@@ -97,6 +96,7 @@
     </div>
   </div>
 
+  <!-- Script sumber dan layer -->
   <script src="resources/qgis2web_expressions.js"></script>
   <script src="./resources/functions.js"></script>
   <script src="./resources/ol.js"></script>
@@ -109,74 +109,75 @@
   <script src="styles/NDVI_01_2024_2_style.js"></script>
   <script src="styles/NDVI_02_2024_3_style.js"></script>
   <script src="styles/NDVI_03_2024_4_style.js"></script>
-  <script src="./layers/layers.js" type="text/javascript"></script> 
+  <script src="./layers/layers.js"></script> 
   <script src="./resources/Autolinker.min.js"></script>
   <script src="./resources/qgis2web.js"></script>
 
   <script>
-    // Tunggu sampai map dan layers sudah tersedia
     window.onload = function () {
-      const layerNDVI_Jan = layersList.find(l => l.get('title').includes('NDVI_01_2024'));
-      const layerNDVI_Feb = layersList.find(l => l.get('title').includes('NDVI_02_2024'));
-      const layerNDVI_Mar = layersList.find(l => l.get('title').includes('NDVI_03_2024'));
-      const layerKecamatan = layersList.find(l => l.get('title').includes('Administrasi_Kecamatan_1'));
-
       const ndviLayers = {
-        'NDVI_01_2024_2': layerNDVI_Jan,
-        'NDVI_02_2024_3': layerNDVI_Feb,
-        'NDVI_03_2024_4': layerNDVI_Mar
+        'NDVI_01_2024_2': layersList.find(l => l.get('title').includes('NDVI_01_2024')),
+        'NDVI_02_2024_3': layersList.find(l => l.get('title').includes('NDVI_02_2024')),
+        'NDVI_03_2024_4': layersList.find(l => l.get('title').includes('NDVI_03_2024')),
       };
 
-      // Set default: hanya Januari aktif
+      const layerKecamatan = layersList.find(l => l.get('title').includes('Administrasi_Kecamatan_1'));
+
+      // Atur hanya layer bulan awal yang terlihat
+      const dropdown = document.getElementById('bulanNDVI');
+      const defaultLayer = dropdown.value;
+
       for (const key in ndviLayers) {
-        ndviLayers[key].setVisible(key === 'NDVI_01_2024_2');
+        ndviLayers[key].setVisible(key === defaultLayer);
       }
 
-      // Handle dropdown perubahan bulan
-      document.getElementById('bulanNDVI').addEventListener('change', function () {
+      // Ganti layer sesuai bulan saat dropdown berubah
+      dropdown.addEventListener('change', function () {
         const selected = this.value;
         for (const key in ndviLayers) {
           ndviLayers[key].setVisible(key === selected);
         }
       });
 
-      // Menambahkan event listener untuk klik pada kecamatan
-      layerKecamatan.on('click', function (evt) {
-        const feature = evt.feature;
-        const properties = feature.getProperties();
-        
-        // Ambil nilai NDVI jika tersedia di layer terkait
-        const ndvi = feature.get('NDVI');  // Sesuaikan nama atribut NDVI
-        const ndviMean = feature.get('_mean');  // Atribut _mean
-        const ndviMin = feature.get('_min');  // Atribut _min
-        const ndviMax = feature.get('_max');  // Atribut _max
-
-        // Menampilkan informasi pada popup
-        const content = `
-          <h3>${properties.nama_kabupaten} - ${properties.nama_kecamatan}</h3>
-          <p><strong>Mean NDVI:</strong> ${ndviMean || 'Data tidak tersedia'}</p>
-          <p><strong>Min NDVI:</strong> ${ndviMin || 'Data tidak tersedia'}</p>
-          <p><strong>Max NDVI:</strong> ${ndviMax || 'Data tidak tersedia'}</p>
-          <p><strong>NDVI:</strong> ${ndvi || 'Data tidak tersedia'}</p>
-        `;
-        document.getElementById('popup-content').innerHTML = content;
-        popup.show(evt.coordinate);
+      // Popup interaktif saat klik
+      const overlay = new ol.Overlay({
+        element: document.getElementById('popup'),
+        autoPan: true,
+        autoPanAnimation: { duration: 250 }
       });
+      map.addOverlay(overlay);
 
-      // Handle checkbox untuk menampilkan kategori NDVI
-      document.getElementById('ndvi1').addEventListener('change', function () {
-        ndviLayers['NDVI_01_2024_2'].setVisible(this.checked);
-      });
+      const closer = document.getElementById('popup-closer');
+      closer.onclick = function () {
+        overlay.setPosition(undefined);
+        closer.blur();
+        return false;
+      };
 
-      document.getElementById('ndvi2').addEventListener('change', function () {
-        ndviLayers['NDVI_02_2024_3'].setVisible(this.checked);
-      });
+      map.on('singleclick', function (evt) {
+        let featureFound = false;
+        map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
+          const selectedLayer = ndviLayers[dropdown.value];
+          if (layer === selectedLayer) {
+            const props = feature.getProperties();
+            const content = `
+              <strong>${props.nama_kecamatan || 'Nama tidak tersedia'}</strong><br>
+              Mean NDVI: ${props._mean || 'N/A'}<br>
+              Min NDVI: ${props._min || 'N/A'}<br>
+              Max NDVI: ${props._max || 'N/A'}<br>
+            `;
+            document.getElementById('popup-content').innerHTML = content;
+            overlay.setPosition(evt.coordinate);
+            featureFound = true;
+          }
+        });
 
-      document.getElementById('ndvi3').addEventListener('change', function () {
-        ndviLayers['NDVI_03_2024_4'].setVisible(this.checked);
+        if (!featureFound) {
+          overlay.setPosition(undefined);
+        }
       });
     };
   </script>
-
 </body>
 </html>
+
